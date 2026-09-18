@@ -707,6 +707,30 @@
       <div class="stat"><div class="label">History loads</div><div class="value" id="stat-history">0</div></div>
     </div>
 
+    <div class="card" style="margin-bottom: 20px;">
+      <h2>
+        Users
+        <button type="button" id="refresh-users-btn" class="copy-btn" title="Refresh" style="margin-left: auto;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+        </button>
+      </h2>
+      <div id="users-error"></div>
+      <div style="overflow-x: auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Email</th>
+              <th>User ID</th>
+              <th>Wallet ID</th>
+              <th>Balance</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="users-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+
     <div class="grid">
       <section class="card">
         <h2><span class="badge-num">1</span> Create user</h2>
@@ -718,7 +742,6 @@
           <button type="submit"><span class="spinner"></span><span class="btn-label">Create user</span></button>
         </form>
         <div id="create-user-error"></div>
-        <ul id="user-list"></ul>
       </section>
 
       <section class="card">
@@ -874,29 +897,43 @@
   const COPY_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
   const DELETE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-.867 12.142A2 2 0 0 1 16.138 20H7.862a2 2 0 0 1-1.995-1.858L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>';
 
-  // --- 1. Create user ---
-  const createUserForm = document.getElementById("create-user-form");
-  const createUserError = document.getElementById("create-user-error");
-  const userList = document.getElementById("user-list");
+  // --- Users table (shared by create user / transfer / delete) ---
+  const usersError = document.getElementById("users-error");
+  const usersTableBody = document.getElementById("users-table-body");
+  const refreshUsersBtn = document.getElementById("refresh-users-btn");
 
-  function buildUserListItem({ userId, walletId, balance, currency, email }) {
-    const li = document.createElement("li");
-    const textSpan = document.createElement("span");
-    textSpan.className = "entry-text mono";
-    textSpan.textContent =
-      `userId: ${userId}  |  walletId: ${walletId}  |  ${balance} ${currency}  (${email})`;
+  function buildUserRow(user) {
+    const row = document.createElement("tr");
 
+    const emailCell = document.createElement("td");
+    emailCell.textContent = user.email;
+    row.appendChild(emailCell);
+
+    const userIdCell = document.createElement("td");
+    userIdCell.className = "mono";
+    userIdCell.textContent = user.userId;
+    row.appendChild(userIdCell);
+
+    const walletIdCell = document.createElement("td");
+    walletIdCell.className = "mono";
+    walletIdCell.textContent = user.walletId;
+    row.appendChild(walletIdCell);
+
+    const balanceCell = document.createElement("td");
+    balanceCell.textContent = `${user.balance} ${user.currency}`;
+    row.appendChild(balanceCell);
+
+    const actionsCell = document.createElement("td");
     const actions = document.createElement("span");
     actions.style.display = "flex";
     actions.style.gap = "6px";
-    actions.style.flexShrink = "0";
 
     const copyBtn = document.createElement("button");
     copyBtn.type = "button";
     copyBtn.className = "copy-btn";
     copyBtn.title = "Copy userId";
     copyBtn.innerHTML = COPY_ICON;
-    copyBtn.addEventListener("click", () => copyToClipboard(userId, copyBtn));
+    copyBtn.addEventListener("click", () => copyToClipboard(user.userId, copyBtn));
 
     const deleteBtn = document.createElement("button");
     deleteBtn.type = "button";
@@ -904,47 +941,70 @@
     deleteBtn.title = "Delete user (only works if wallet balance is zero)";
     deleteBtn.innerHTML = DELETE_ICON;
     deleteBtn.addEventListener("click", async () => {
-      clearChildren(createUserError);
+      clearChildren(usersError);
       deleteBtn.disabled = true;
       try {
         const res = await fetch(
-          `${ACCOUNT_SERVICE_URL}/users/${encodeURIComponent(userId)}`,
+          `${ACCOUNT_SERVICE_URL}/users/${encodeURIComponent(user.userId)}`,
           { method: "DELETE" }
         );
         const body = await parseJsonSafely(res);
         if (!res.ok) {
           const detail = (body && body.error) || res.statusText || `HTTP ${res.status}`;
-          showError(createUserError, `Delete failed: ${detail}`);
+          showError(usersError, `Delete failed: ${detail}`);
           deleteBtn.disabled = false;
           return;
         }
-        li.remove();
+        row.remove();
       } catch (err) {
-        showError(createUserError, `Network error deleting user: ${err.message}`);
+        showError(usersError, `Network error deleting user: ${err.message}`);
         deleteBtn.disabled = false;
       }
     });
 
     actions.appendChild(copyBtn);
     actions.appendChild(deleteBtn);
-    li.appendChild(textSpan);
-    li.appendChild(actions);
-    return li;
+    actionsCell.appendChild(actions);
+    row.appendChild(actionsCell);
+
+    return row;
   }
 
-  // Load existing users on page load — the list is otherwise just built up
-  // from what you create in this tab, and disappears on refresh since it
-  // was never actually being fetched from the backend.
+  // Re-fetches the full user table from account-service — the source of
+  // truth for balances lives there, not in the browser. Called on page
+  // load, after creating/deleting a user, and after every transfer attempt
+  // (a "failed" transfer can still have actually debited the source wallet
+  // if the debit succeeded but the credit leg failed — see the
+  // known-compensating-transaction gap in CLAUDE.md — so balances need
+  // refreshing regardless of the transfer's outcome, not just on success).
   async function loadUsers() {
     try {
       const users = await callApi(`${ACCOUNT_SERVICE_URL}/users`, { method: "GET" });
-      clearChildren(userList);
-      users.forEach((u) => userList.appendChild(buildUserListItem(u)));
+      clearChildren(usersTableBody);
+
+      if (!users.length) {
+        const emptyRow = document.createElement("tr");
+        const emptyCell = document.createElement("td");
+        emptyCell.colSpan = 5;
+        emptyCell.style.textAlign = "center";
+        emptyCell.style.color = "var(--text-muted)";
+        emptyCell.textContent = "No users yet — create one below.";
+        emptyRow.appendChild(emptyCell);
+        usersTableBody.appendChild(emptyRow);
+        return;
+      }
+
+      users.forEach((u) => usersTableBody.appendChild(buildUserRow(u)));
     } catch (err) {
-      showError(createUserError, `Could not load existing users: ${err.message}`);
+      showError(usersError, `Could not load users: ${err.message}`);
     }
   }
   loadUsers();
+  refreshUsersBtn.addEventListener("click", () => loadUsers());
+
+  // --- 1. Create user ---
+  const createUserForm = document.getElementById("create-user-form");
+  const createUserError = document.getElementById("create-user-error");
 
   createUserForm.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -959,13 +1019,13 @@
 
     setLoading(submitBtn, true);
     try {
-      const result = await callApi(`${ACCOUNT_SERVICE_URL}/users`, {
+      await callApi(`${ACCOUNT_SERVICE_URL}/users`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
-      userList.prepend(buildUserListItem({ ...result, email }));
+      await loadUsers();
       createUserForm.reset();
       bumpStat("users", "stat-users");
     } catch (err) {
@@ -1008,6 +1068,15 @@
 
     const body = await parseJsonSafely(response);
     setLoading(submitBtn, false);
+
+    // Refresh balances for *any* response that actually reached the server,
+    // not just a "completed" one: a "failed" transfer can still have
+    // debited the source wallet if the debit leg succeeded and only the
+    // credit leg failed (no compensating reversal exists — see CLAUDE.md),
+    // and even an unexpected 500 could follow a debit+credit that both
+    // already went through. Cheapest correct option is to just always
+    // re-fetch rather than try to guess which statuses are "safe".
+    loadUsers();
 
     // 201 (completed) and 502 (failed) both return a real transaction
     // record from transaction-service's own POST /transfer contract — show
