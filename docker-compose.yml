@@ -1,16 +1,48 @@
-version: "3.8"
-
 services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: miniledger
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./account-service/migrations/001_init.sql:/docker-entrypoint-initdb.d/001_init.sql:ro
+      - ./account-service/migrations/002_idempotency.sql:/docker-entrypoint-initdb.d/002_idempotency.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  mongo:
+    image: mongo:7
+    volumes:
+      - mongo_data:/data/db
+
   account-service:
     build: ./account-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file: ./account-service/.env
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/miniledger
     ports:
       - "4001:4001"
-    environment:
-      - PORT=4001
 
   transaction-service:
     build: ./transaction-service
+    depends_on:
+      - account-service
+      - mongo
+    env_file: ./transaction-service/.env
+    environment:
+      MONGO_URI: mongodb://mongo:27017/transaction_service
+      ACCOUNT_SERVICE_URL: http://account-service:4001
     ports:
       - "4002:4002"
-    environment:
-      - PORT=4002
+
+volumes:
+  postgres_data:
+  mongo_data:

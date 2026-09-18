@@ -1,0 +1,1063 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>miniledger Dashboard</title>
+<style>
+  :root {
+    --bg: #f1f2f8;
+    --bg-elevated: #ffffff;
+    --bg-inset: #f7f8fc;
+    --border: #e3e5ee;
+    --text: #16181f;
+    --text-muted: #676d7e;
+    --accent: #6366f1;
+    --accent-2: #8b5cf6;
+    --accent-hover: #4f46e5;
+    --accent-soft: #eef0fe;
+    --success: #16a34a;
+    --success-bg: #f0fdf4;
+    --success-border: #86efac;
+    --danger: #dc2626;
+    --danger-bg: #fef2f2;
+    --danger-border: #fca5a5;
+    --warning: #b45309;
+    --warning-bg: #fffbeb;
+    --shadow: 0 1px 2px rgba(16,17,32,.04), 0 1px 3px rgba(16,17,32,.06);
+    --shadow-lg: 0 12px 32px rgba(16,17,32,.10);
+    --radius: 14px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0d0e14;
+      --bg-elevated: #171821;
+      --bg-inset: #12131b;
+      --border: #2a2c3a;
+      --text: #eceef5;
+      --text-muted: #9296a8;
+      --accent-soft: #23233a;
+      --success-bg: #08210f;
+      --success-border: #15803d;
+      --danger-bg: #250c0d;
+      --danger-border: #b91c1c;
+      --warning-bg: #241a04;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 1px 3px rgba(0,0,0,.4);
+      --shadow-lg: 0 20px 44px rgba(0,0,0,.5);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0d0e14;
+    --bg-elevated: #171821;
+    --bg-inset: #12131b;
+    --border: #2a2c3a;
+    --text: #eceef5;
+    --text-muted: #9296a8;
+    --accent-soft: #23233a;
+    --success-bg: #08210f;
+    --success-border: #15803d;
+    --danger-bg: #250c0d;
+    --danger-border: #b91c1c;
+    --warning-bg: #241a04;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 1px 3px rgba(0,0,0,.4);
+    --shadow-lg: 0 20px 44px rgba(0,0,0,.5);
+  }
+
+  * { box-sizing: border-box; }
+  html { color-scheme: light dark; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    margin: 0;
+    padding-bottom: 60px;
+    transition: background .25s ease, color .25s ease;
+  }
+  code, .mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+
+  /* ---------- Header ---------- */
+  header.hero {
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: #fff;
+    padding: 28px 32px 64px;
+    position: relative;
+    overflow: hidden;
+  }
+  header.hero::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 85% -10%, rgba(255,255,255,.25), transparent 45%);
+    pointer-events: none;
+  }
+  .hero-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 16px;
+    position: relative;
+    z-index: 1;
+  }
+  .hero-title h1 {
+    margin: 0 0 4px;
+    font-size: 26px;
+    letter-spacing: -0.02em;
+  }
+  .hero-title p {
+    margin: 0;
+    opacity: .9;
+    font-size: 13.5px;
+    max-width: 560px;
+  }
+  .hero-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .status-pill {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    background: rgba(255,255,255,.16);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(255,255,255,.28);
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 12.5px;
+    font-weight: 500;
+  }
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #d1d5db;
+    box-shadow: 0 0 0 0 rgba(255,255,255,.5);
+    flex-shrink: 0;
+  }
+  .dot.checking { background: #fbbf24; animation: pulse 1.2s ease-in-out infinite; }
+  .dot.up { background: #4ade80; animation: pulse-ok 2s ease-in-out infinite; }
+  .dot.down { background: #f87171; }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; } 50% { opacity: .35; }
+  }
+  @keyframes pulse-ok {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(74,222,128,.5); }
+    50% { box-shadow: 0 0 0 4px rgba(74,222,128,0); }
+  }
+  #theme-toggle {
+    width: 34px; height: 34px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,.28);
+    background: rgba(255,255,255,.16);
+    color: #fff;
+    cursor: pointer;
+    transition: transform .15s ease, background .15s ease;
+  }
+  #theme-toggle:hover { background: rgba(255,255,255,.28); transform: translateY(-1px); }
+  #theme-toggle svg { width: 16px; height: 16px; }
+
+  /* ---------- Tabs ---------- */
+  nav.tabs {
+    max-width: 1180px;
+    margin: -34px auto 0;
+    padding: 0 32px;
+    position: relative;
+    z-index: 2;
+    display: flex;
+    gap: 6px;
+  }
+  nav.tabs button {
+    background: var(--bg-elevated);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    border-bottom: none;
+    padding: 11px 20px;
+    border-radius: 10px 10px 0 0;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: var(--shadow);
+    transition: color .15s ease, transform .1s ease;
+  }
+  nav.tabs button.active {
+    color: var(--accent);
+  }
+  nav.tabs button:hover { transform: translateY(-1px); }
+
+  main {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 24px 32px 0;
+  }
+
+  .panel { display: none; animation: fadeUp .35s ease both; }
+  .panel.active { display: block; }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ---------- Cards / grid ---------- */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 20px;
+    align-items: start;
+  }
+  section.card, div.card {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 22px;
+    box-shadow: var(--shadow);
+    transition: box-shadow .2s ease, background .25s ease, border-color .25s ease;
+  }
+  section.card:hover { box-shadow: var(--shadow-lg); }
+  section.card h2, div.card h2 {
+    margin-top: 0;
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card h2 .badge-num {
+    width: 22px; height: 22px;
+    border-radius: 7px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700;
+  }
+
+  /* ---------- Stats ---------- */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 14px;
+    margin-bottom: 22px;
+  }
+  .stat {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    box-shadow: var(--shadow);
+  }
+  .stat .label {
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+  .stat .value {
+    font-size: 26px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    transition: color .2s ease;
+  }
+  .stat.success .value { color: var(--success); }
+  .stat.danger .value { color: var(--danger); }
+
+  /* ---------- Forms ---------- */
+  label {
+    display: block;
+    font-size: 12.5px;
+    font-weight: 600;
+    margin-top: 12px;
+    margin-bottom: 5px;
+    color: var(--text-muted);
+  }
+  input {
+    width: 100%;
+    padding: 9px 11px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    background: var(--bg-inset);
+    color: var(--text);
+    transition: border-color .15s ease, box-shadow .15s ease;
+  }
+  input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  button[type="submit"] {
+    margin-top: 16px;
+    padding: 10px 18px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: background .15s ease, transform .1s ease;
+  }
+  button[type="submit"]:hover { background: var(--accent-hover); transform: translateY(-1px); }
+  button[type="submit"]:active { transform: translateY(0); }
+  button[type="submit"]:disabled { opacity: .65; cursor: default; transform: none; }
+  .spinner {
+    width: 13px; height: 13px;
+    border: 2px solid rgba(255,255,255,.4);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+    display: none;
+  }
+  button[data-loading="true"] .spinner { display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ---------- Result / error boxes ---------- */
+  .box {
+    margin-top: 12px;
+    padding: 11px 13px;
+    border-radius: 9px;
+    font-size: 13px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    animation: slideIn .25s ease both;
+  }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .error-box {
+    background: var(--danger-bg);
+    border: 1px solid var(--danger-border);
+    color: var(--danger);
+  }
+  .result-box {
+    background: var(--success-bg);
+    border: 1px solid var(--success-border);
+    color: var(--success);
+  }
+
+  /* ---------- User list ---------- */
+  ul#user-list {
+    list-style: none;
+    padding: 0;
+    margin-top: 12px;
+    max-height: 240px;
+    overflow-y: auto;
+  }
+  ul#user-list li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 9px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 6px;
+    font-size: 12px;
+    background: var(--bg-inset);
+    animation: slideIn .3s ease both;
+  }
+  ul#user-list .entry-text {
+    word-break: break-all;
+  }
+  .copy-btn {
+    flex-shrink: 0;
+    width: 26px; height: 26px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg-elevated);
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: color .15s ease, border-color .15s ease;
+  }
+  .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .copy-btn svg { width: 13px; height: 13px; }
+  .copy-btn.copied { color: var(--success); border-color: var(--success-border); }
+
+  /* ---------- Table ---------- */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 12px;
+    font-size: 13px;
+  }
+  th, td {
+    border-bottom: 1px solid var(--border);
+    padding: 9px 10px;
+    text-align: left;
+  }
+  th {
+    background: var(--bg-inset);
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--text-muted);
+  }
+  tbody tr { animation: slideIn .3s ease both; }
+  tbody tr:hover { background: var(--bg-inset); }
+  td.mono { font-size: 11.5px; }
+  .status-pill-cell {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 700;
+  }
+  .status-completed { color: var(--success); background: var(--success-bg); }
+  .status-failed { color: var(--danger); background: var(--danger-bg); }
+  .status-pending { color: var(--warning); background: var(--warning-bg); }
+
+  /* ---------- Overview tab ---------- */
+  .badges {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    margin: 14px 0 4px;
+  }
+  .badge {
+    background: var(--accent-soft);
+    color: var(--accent);
+    padding: 5px 11px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .endpoint-list { list-style: none; padding: 0; margin: 10px 0 0; }
+  .endpoint-list li {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px dashed var(--border);
+    font-size: 12.5px;
+  }
+  .endpoint-list li:last-child { border-bottom: none; }
+  .method {
+    flex-shrink: 0;
+    width: 46px;
+    text-align: center;
+    font-size: 10.5px;
+    font-weight: 800;
+    padding: 3px 0;
+    border-radius: 5px;
+    color: #fff;
+  }
+  .method.get { background: #2563eb; }
+  .method.post { background: #16a34a; }
+  .endpoint-list code { color: var(--text); }
+  .endpoint-list span.desc { color: var(--text-muted); margin-left: auto; text-align: right; }
+
+  /* file tree */
+  details.tree summary {
+    cursor: pointer;
+    padding: 3px 0;
+    font-size: 13px;
+    list-style: none;
+  }
+  details.tree summary::-webkit-details-marker { display: none; }
+  details.tree summary::before {
+    content: "▸";
+    display: inline-block;
+    width: 14px;
+    color: var(--text-muted);
+    transition: transform .15s ease;
+  }
+  details.tree[open] > summary::before { transform: rotate(90deg); }
+  details.tree { margin-left: 16px; }
+  .tree > li, ul.tree-root { list-style: none; padding-left: 0; margin: 0; }
+  ul.tree-root { padding-left: 4px; }
+  li.file {
+    list-style: none;
+    margin-left: 34px;
+    padding: 3px 0;
+    font-size: 12.5px;
+    color: var(--text-muted);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  li.file .comment { color: var(--text-muted); opacity: .7; margin-left: 8px; font-family: inherit; }
+  summary .folder-name { font-weight: 600; }
+  summary .icon { margin-right: 4px; }
+
+  svg#arch text { fill: var(--text); font-size: 12px; font-family: inherit; }
+  svg#arch .box-rect { fill: var(--bg-inset); stroke: var(--border); }
+  svg#arch .service-rect { fill: var(--accent-soft); stroke: var(--accent); }
+  svg#arch .sub { fill: var(--text-muted); font-size: 10.5px; }
+  svg#arch path.arrow { stroke: var(--text-muted); fill: none; stroke-width: 1.6; }
+  svg#arch text.arrow-label { fill: var(--text-muted); font-size: 10px; }
+
+  footer {
+    max-width: 1180px;
+    margin: 40px auto 0;
+    padding: 0 32px;
+    color: var(--text-muted);
+    font-size: 12px;
+  }
+
+  @media (max-width: 640px) {
+    header.hero { padding: 22px 18px 56px; }
+    main, nav.tabs, footer { padding-left: 18px; padding-right: 18px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-top">
+    <div class="hero-title">
+      <h1>miniledger</h1>
+      <p>Live demo dashboard for account-service and transaction-service — talks directly to both over HTTP, no backend logic of its own.</p>
+    </div>
+    <div class="hero-controls">
+      <div class="status-pill" id="account-status-pill">
+        <span class="dot checking" id="account-dot"></span>
+        <span>account-service :4001</span>
+      </div>
+      <div class="status-pill" id="transaction-status-pill">
+        <span class="dot checking" id="transaction-dot"></span>
+        <span>transaction-service :4002</span>
+      </div>
+      <button id="theme-toggle" title="Toggle theme" aria-label="Toggle theme">
+        <svg id="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<nav class="tabs">
+  <button data-tab="overview" class="active">Overview</button>
+  <button data-tab="demo">Live Demo</button>
+</nav>
+
+<main>
+
+  <!-- ============ OVERVIEW ============ -->
+  <section id="panel-overview" class="panel active">
+    <div class="grid" style="grid-template-columns: 1fr; margin-bottom: 20px;">
+      <div class="card">
+        <h2>System architecture</h2>
+        <svg id="arch" viewBox="0 0 960 460" width="100%" role="img" aria-label="Architecture diagram">
+          <defs>
+            <marker id="arrowhead" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+              <path d="M0,0 L6,3 L0,6 Z" style="fill: var(--text-muted);"></path>
+            </marker>
+          </defs>
+
+          <path class="arrow" marker-end="url(#arrowhead)" d="M460,76 L250,158"></path>
+          <path class="arrow" marker-end="url(#arrowhead)" d="M500,76 L710,158"></path>
+          <path class="arrow" marker-end="url(#arrowhead)" d="M220,230 L220,328"></path>
+          <path class="arrow" marker-end="url(#arrowhead)" d="M740,230 L740,328"></path>
+          <path class="arrow" marker-end="url(#arrowhead)" d="M610,205 L350,205"></path>
+          <text class="arrow-label" x="480" y="198" text-anchor="middle">internal calls</text>
+          <text class="arrow-label" x="480" y="210" text-anchor="middle">GET /internal/wallets/:userId · POST /internal/wallets/:id/adjust</text>
+
+          <rect class="box-rect" x="380" y="20" width="200" height="56" rx="10"></rect>
+          <text x="480" y="44" text-anchor="middle" font-weight="700">Dashboard</text>
+          <text class="sub" x="480" y="60" text-anchor="middle">this page, in your browser</text>
+
+          <rect class="service-rect" x="90" y="160" width="260" height="70" rx="10"></rect>
+          <text x="220" y="188" text-anchor="middle" font-weight="700">account-service</text>
+          <text class="sub" x="220" y="204" text-anchor="middle">Node/Express · JWT auth · :4001</text>
+          <text class="sub" x="220" y="218" text-anchor="middle">users, wallets, idempotent adjustments</text>
+
+          <rect class="service-rect" x="610" y="160" width="260" height="70" rx="10"></rect>
+          <text x="740" y="188" text-anchor="middle" font-weight="700">transaction-service</text>
+          <text class="sub" x="740" y="204" text-anchor="middle">Node/Express · :4002</text>
+          <text class="sub" x="740" y="218" text-anchor="middle">transfers, transaction history</text>
+
+          <rect class="box-rect" x="110" y="330" width="220" height="68" rx="10"></rect>
+          <text x="220" y="358" text-anchor="middle" font-weight="700">PostgreSQL</text>
+          <text class="sub" x="220" y="374" text-anchor="middle">users · wallets · idempotency_keys</text>
+
+          <rect class="box-rect" x="630" y="330" width="220" height="68" rx="10"></rect>
+          <text x="740" y="358" text-anchor="middle" font-weight="700">MongoDB Atlas</text>
+          <text class="sub" x="740" y="374" text-anchor="middle">transactions</text>
+        </svg>
+        <div class="badges">
+          <span class="badge">Node.js</span>
+          <span class="badge">Express</span>
+          <span class="badge">PostgreSQL</span>
+          <span class="badge">MongoDB / Mongoose</span>
+          <span class="badge">JWT</span>
+          <span class="badge">Docker Compose</span>
+          <span class="badge">Jest + Supertest</span>
+          <span class="badge">axios-retry</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid" style="grid-template-columns: 1fr 1fr; margin-bottom: 20px;">
+      <div class="card">
+        <h2>account-service — key endpoints</h2>
+        <ul class="endpoint-list">
+          <li><span class="method post">POST</span><code>/users</code><span class="desc">create user + zero-balance wallet</span></li>
+          <li><span class="method get">GET</span><code>/wallets/:userId</code><span class="desc">requires Bearer JWT</span></li>
+          <li><span class="method get">GET</span><code>/internal/wallets/:userId</code><span class="desc">service-to-service lookup</span></li>
+          <li><span class="method post">POST</span><code>/internal/wallets/:id/adjust</code><span class="desc">idempotent debit/credit</span></li>
+          <li><span class="method post">POST</span><code>/auth/token</code><span class="desc">dev-only token mint</span></li>
+        </ul>
+      </div>
+      <div class="card">
+        <h2>transaction-service — key endpoints</h2>
+        <ul class="endpoint-list">
+          <li><span class="method post">POST</span><code>/transfer</code><span class="desc">orchestrates debit + credit</span></li>
+          <li><span class="method get">GET</span><code>/transactions/:userId</code><span class="desc">paginated history</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="grid" style="grid-template-columns: 1fr;">
+      <div class="card">
+        <h2>Project structure</h2>
+        <ul class="tree-root" style="padding-left:0; list-style:none; margin-top: 10px;">
+          <li>
+            <details class="tree" open>
+              <summary><span class="icon">📁</span><span class="folder-name">dashboard/</span></summary>
+              <li class="file">📄 index.html <span class="comment">this page</span></li>
+            </details>
+          </li>
+          <li>
+            <details class="tree" open>
+              <summary><span class="icon">📁</span><span class="folder-name">account-service/</span></summary>
+              <li class="file">🐳 Dockerfile, .dockerignore</li>
+              <li class="file">📦 package.json</li>
+              <details class="tree">
+                <summary><span class="icon">📁</span><span class="folder-name">migrations/</span></summary>
+                <li class="file">🗄️ 001_init.sql <span class="comment">users, wallets</span></li>
+                <li class="file">🗄️ 002_idempotency.sql <span class="comment">idempotency_keys</span></li>
+              </details>
+              <details class="tree">
+                <summary><span class="icon">📁</span><span class="folder-name">test/</span></summary>
+                <li class="file">⚙️ globalSetup.js <span class="comment">resets + migrates test DB</span></li>
+                <li class="file">⚙️ setupEnv.js</li>
+              </details>
+              <details class="tree">
+                <summary><span class="icon">📁</span><span class="folder-name">src/</span></summary>
+                <li class="file">app.js <span class="comment">Express app</span></li>
+                <li class="file">index.js <span class="comment">entry point</span></li>
+                <li class="file">db.js <span class="comment">pg Pool</span></li>
+                <details class="tree">
+                  <summary><span class="icon">📁</span><span class="folder-name">middleware/</span></summary>
+                  <li class="file">auth.js <span class="comment">requireAuth</span></li>
+                </details>
+                <details class="tree">
+                  <summary><span class="icon">📁</span><span class="folder-name">repositories/</span></summary>
+                  <li class="file">accountRepo.js + .test.js</li>
+                </details>
+                <details class="tree">
+                  <summary><span class="icon">📁</span><span class="folder-name">routes/</span></summary>
+                  <li class="file">users.js + .test.js</li>
+                  <li class="file">wallets.js + .test.js</li>
+                  <li class="file">auth.js</li>
+                </details>
+                <details class="tree">
+                  <summary><span class="icon">📁</span><span class="folder-name">scripts/</span></summary>
+                  <li class="file">migrate.js</li>
+                </details>
+              </details>
+            </details>
+          </li>
+          <li>
+            <details class="tree" open>
+              <summary><span class="icon">📁</span><span class="folder-name">transaction-service/</span></summary>
+              <li class="file">🐳 Dockerfile, .dockerignore</li>
+              <li class="file">📦 package.json</li>
+              <details class="tree">
+                <summary><span class="icon">📁</span><span class="folder-name">src/</span></summary>
+                <li class="file">app.js, index.js, db.js</li>
+                <details class="tree">
+                  <summary><span class="icon">📁</span><span class="folder-name">models/</span></summary>
+                  <li class="file">Transaction.js</li>
+                </details>
+                <details class="tree">
+                  <summary><span class="icon">📁</span><span class="folder-name">repositories/</span></summary>
+                  <li class="file">transactionRepo.js</li>
+                </details>
+                <details class="tree">
+                  <summary><span class="icon">📁</span><span class="folder-name">clients/</span></summary>
+                  <li class="file">accountClient.js <span class="comment">axios + retry</span></li>
+                </details>
+                <details class="tree">
+                  <summary><span class="icon">📁</span><span class="folder-name">routes/</span></summary>
+                  <li class="file">transfer.js + .test.js</li>
+                  <li class="file">transactions.js</li>
+                </details>
+              </details>
+            </details>
+          </li>
+          <li class="file">🐙 docker-compose.yml <span class="comment">postgres + mongo + both services</span></li>
+          <li class="file">📘 DEPLOYMENT.md <span class="comment">ECS Fargate design (reference only)</span></li>
+          <li class="file">📝 CLAUDE.md <span class="comment">project notes</span></li>
+          <li class="file">📦 package.json <span class="comment">root — "docker:up" script</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ LIVE DEMO ============ -->
+  <section id="panel-demo" class="panel">
+    <div class="stats-row">
+      <div class="stat"><div class="label">Users created</div><div class="value" id="stat-users">0</div></div>
+      <div class="stat success"><div class="label">Transfers completed</div><div class="value" id="stat-transfers-ok">0</div></div>
+      <div class="stat danger"><div class="label">Transfers failed</div><div class="value" id="stat-transfers-fail">0</div></div>
+      <div class="stat"><div class="label">History loads</div><div class="value" id="stat-history">0</div></div>
+    </div>
+
+    <div class="grid">
+      <section class="card">
+        <h2><span class="badge-num">1</span> Create user</h2>
+        <form id="create-user-form">
+          <label for="email">Email</label>
+          <input type="email" id="email" required placeholder="alice@example.com" />
+          <button type="submit"><span class="spinner"></span><span class="btn-label">Create user</span></button>
+        </form>
+        <div id="create-user-error"></div>
+        <ul id="user-list"></ul>
+      </section>
+
+      <section class="card">
+        <h2><span class="badge-num">2</span> Transfer</h2>
+        <form id="transfer-form">
+          <label for="fromUserId">From userId</label>
+          <input type="text" id="fromUserId" required />
+          <label for="toUserId">To userId</label>
+          <input type="text" id="toUserId" required />
+          <label for="amount">Amount</label>
+          <input type="number" id="amount" step="0.01" min="0.01" required />
+          <button type="submit"><span class="spinner"></span><span class="btn-label">Transfer</span></button>
+        </form>
+        <div id="transfer-error"></div>
+        <div id="transfer-result"></div>
+      </section>
+
+      <section class="card">
+        <h2><span class="badge-num">3</span> Transaction history</h2>
+        <form id="history-form">
+          <label for="historyUserId">userId</label>
+          <input type="text" id="historyUserId" required />
+          <button type="submit"><span class="spinner"></span><span class="btn-label">Load</span></button>
+        </form>
+        <div id="history-error"></div>
+        <div id="history-table-container"></div>
+      </section>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  Hardcoded endpoints: <code>http://localhost:4001</code> (account-service) and <code>http://localhost:4002</code> (transaction-service). No build tooling, no dependencies — one static file.
+</footer>
+
+<script>
+  // Hardcoded on purpose: this page only ever talks to these two existing
+  // services and adds no backend logic of its own.
+  const ACCOUNT_SERVICE_URL = "http://localhost:4001";
+  const TRANSACTION_SERVICE_URL = "http://localhost:4002";
+
+  // ---------- theme ----------
+  const ICONS = {
+    sun: '<circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+    moon: '<path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8Z"/>',
+  };
+  const themeIcon = document.getElementById("theme-icon");
+  const themeToggle = document.getElementById("theme-toggle");
+
+  function systemPrefersDark() {
+    return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  }
+  function applyTheme(theme) {
+    document.documentElement.setAttribute("data-theme", theme);
+    themeIcon.innerHTML = theme === "dark" ? ICONS.sun : ICONS.moon;
+  }
+  let storedTheme = null;
+  try { storedTheme = localStorage.getItem("miniledger-theme"); } catch (err) { /* ignore */ }
+  applyTheme(storedTheme || (systemPrefersDark() ? "dark" : "light"));
+
+  themeToggle.addEventListener("click", () => {
+    const next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    applyTheme(next);
+    try { localStorage.setItem("miniledger-theme", next); } catch (err) { /* ignore */ }
+  });
+
+  // ---------- tabs ----------
+  document.querySelectorAll("nav.tabs button").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("nav.tabs button").forEach((b) => b.classList.remove("active"));
+      document.querySelectorAll(".panel").forEach((p) => p.classList.remove("active"));
+      btn.classList.add("active");
+      document.getElementById(`panel-${btn.dataset.tab}`).classList.add("active");
+    });
+  });
+
+  // ---------- live health checks ----------
+  async function pingHealth(url, dotEl) {
+    try {
+      const res = await fetch(`${url}/health`, { method: "GET" });
+      dotEl.className = "dot " + (res.ok ? "up" : "down");
+    } catch (err) {
+      dotEl.className = "dot down";
+    }
+  }
+  function startHealthPolling() {
+    const accountDot = document.getElementById("account-dot");
+    const transactionDot = document.getElementById("transaction-dot");
+    const check = () => {
+      pingHealth(ACCOUNT_SERVICE_URL, accountDot);
+      pingHealth(TRANSACTION_SERVICE_URL, transactionDot);
+    };
+    check();
+    setInterval(check, 5000);
+  }
+  startHealthPolling();
+
+  // ---------- session stats ----------
+  const stats = { users: 0, transfersOk: 0, transfersFail: 0, history: 0 };
+  function bumpStat(key, elId) {
+    stats[key] += 1;
+    document.getElementById(elId).textContent = stats[key];
+  }
+
+  // ---------- helpers ----------
+  function clearChildren(el) {
+    while (el.firstChild) el.removeChild(el.firstChild);
+  }
+  function showError(container, message) {
+    clearChildren(container);
+    const box = document.createElement("div");
+    box.className = "box error-box";
+    box.textContent = message;
+    container.appendChild(box);
+  }
+  async function parseJsonSafely(response) {
+    const text = await response.text();
+    if (!text) return null;
+    try { return JSON.parse(text); } catch (err) { return null; }
+  }
+  async function callApi(url, options) {
+    let response;
+    try {
+      response = await fetch(url, options);
+    } catch (err) {
+      throw new Error(`Network error calling ${url}: ${err.message}`);
+    }
+    const body = await parseJsonSafely(response);
+    if (!response.ok) {
+      const detail = (body && body.error) || response.statusText || `HTTP ${response.status}`;
+      throw new Error(`${response.status} ${response.statusText}: ${detail}`);
+    }
+    return body;
+  }
+  function setLoading(button, loading) {
+    button.disabled = loading;
+    button.dataset.loading = loading ? "true" : "false";
+  }
+  function copyToClipboard(text, btn) {
+    const done = () => {
+      btn.classList.add("copied");
+      const original = btn.innerHTML;
+      btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+      setTimeout(() => { btn.classList.remove("copied"); btn.innerHTML = original; }, 1200);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(done);
+    } else {
+      done();
+    }
+  }
+  const COPY_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+
+  // --- 1. Create user ---
+  const createUserForm = document.getElementById("create-user-form");
+  const createUserError = document.getElementById("create-user-error");
+  const userList = document.getElementById("user-list");
+
+  createUserForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    clearChildren(createUserError);
+    const submitBtn = createUserForm.querySelector("button[type=submit]");
+    const email = document.getElementById("email").value.trim();
+
+    setLoading(submitBtn, true);
+    try {
+      const result = await callApi(`${ACCOUNT_SERVICE_URL}/users`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+
+      const li = document.createElement("li");
+      const textSpan = document.createElement("span");
+      textSpan.className = "entry-text mono";
+      textSpan.textContent =
+        `userId: ${result.userId}  |  walletId: ${result.walletId}  |  ${result.balance} ${result.currency}  (${email})`;
+      const copyBtn = document.createElement("button");
+      copyBtn.type = "button";
+      copyBtn.className = "copy-btn";
+      copyBtn.title = "Copy userId";
+      copyBtn.innerHTML = COPY_ICON;
+      copyBtn.addEventListener("click", () => copyToClipboard(result.userId, copyBtn));
+      li.appendChild(textSpan);
+      li.appendChild(copyBtn);
+      userList.prepend(li);
+      createUserForm.reset();
+      bumpStat("users", "stat-users");
+    } catch (err) {
+      showError(createUserError, err.message);
+    } finally {
+      setLoading(submitBtn, false);
+    }
+  });
+
+  // --- 2. Transfer ---
+  const transferForm = document.getElementById("transfer-form");
+  const transferError = document.getElementById("transfer-error");
+  const transferResult = document.getElementById("transfer-result");
+
+  transferForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    clearChildren(transferError);
+    clearChildren(transferResult);
+    const submitBtn = transferForm.querySelector("button[type=submit]");
+
+    const fromUserId = document.getElementById("fromUserId").value.trim();
+    const toUserId = document.getElementById("toUserId").value.trim();
+    const amount = Number(document.getElementById("amount").value);
+    const url = `${TRANSACTION_SERVICE_URL}/transfer`;
+
+    setLoading(submitBtn, true);
+
+    let response;
+    try {
+      response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fromUserId, toUserId, amount }),
+      });
+    } catch (err) {
+      showError(transferError, `Network error calling ${url}: ${err.message}`);
+      setLoading(submitBtn, false);
+      return;
+    }
+
+    const body = await parseJsonSafely(response);
+    setLoading(submitBtn, false);
+
+    // 201 (completed) and 502 (failed) both return a real transaction
+    // record from transaction-service's own POST /transfer contract — show
+    // either inline as "the resulting transaction status", not as a generic
+    // fetch error. Anything else (400 validation, 404 unknown user, 500) has
+    // no meaningful transaction body and is a genuine error.
+    if (body && body.status && (response.status === 201 || response.status === 502)) {
+      const box = document.createElement("div");
+      box.className = body.status === "completed" ? "box result-box" : "box error-box";
+      let text = `status: ${body.status}  |  amount: ${body.amount}  |  transactionId: ${body._id}`;
+      if (body.metadata && body.metadata.reason) {
+        text += `  |  reason: ${body.metadata.reason}`;
+      }
+      box.textContent = text;
+      transferResult.appendChild(box);
+      bumpStat(body.status === "completed" ? "transfersOk" : "transfersFail",
+               body.status === "completed" ? "stat-transfers-ok" : "stat-transfers-fail");
+      return;
+    }
+
+    if (!response.ok) {
+      const detail = (body && body.error) || response.statusText || `HTTP ${response.status}`;
+      showError(transferError, `${response.status} ${response.statusText}: ${detail}`);
+      return;
+    }
+
+    const box = document.createElement("div");
+    box.className = "box result-box";
+    box.textContent = JSON.stringify(body);
+    transferResult.appendChild(box);
+  });
+
+  // --- 3. Transaction history ---
+  const historyForm = document.getElementById("history-form");
+  const historyError = document.getElementById("history-error");
+  const historyContainer = document.getElementById("history-table-container");
+
+  historyForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    clearChildren(historyError);
+    clearChildren(historyContainer);
+    const submitBtn = historyForm.querySelector("button[type=submit]");
+
+    const userId = document.getElementById("historyUserId").value.trim();
+
+    setLoading(submitBtn, true);
+    try {
+      const transactions = await callApi(
+        `${TRANSACTION_SERVICE_URL}/transactions/${encodeURIComponent(userId)}`,
+        { method: "GET" }
+      );
+
+      bumpStat("history", "stat-history");
+
+      if (!transactions || !transactions.length) {
+        const empty = document.createElement("p");
+        empty.style.color = "var(--text-muted)";
+        empty.style.fontSize = "13px";
+        empty.textContent = "No transactions found.";
+        historyContainer.appendChild(empty);
+        return;
+      }
+
+      const table = document.createElement("table");
+
+      const thead = document.createElement("thead");
+      const headRow = document.createElement("tr");
+      ["Time", "From", "To", "Amount", "Status"].forEach((text) => {
+        const th = document.createElement("th");
+        th.textContent = text;
+        headRow.appendChild(th);
+      });
+      thead.appendChild(headRow);
+      table.appendChild(thead);
+
+      const tbody = document.createElement("tbody");
+      transactions.forEach((tx) => {
+        const row = document.createElement("tr");
+
+        const timeCell = document.createElement("td");
+        timeCell.textContent = tx.createdAt ? new Date(tx.createdAt).toLocaleString() : "—";
+        row.appendChild(timeCell);
+
+        const fromCell = document.createElement("td");
+        fromCell.className = "mono";
+        fromCell.textContent = tx.fromWalletId;
+        row.appendChild(fromCell);
+
+        const toCell = document.createElement("td");
+        toCell.className = "mono";
+        toCell.textContent = tx.toWalletId;
+        row.appendChild(toCell);
+
+        const amountCell = document.createElement("td");
+        amountCell.textContent = tx.amount;
+        row.appendChild(amountCell);
+
+        const statusCell = document.createElement("td");
+        const pill = document.createElement("span");
+        pill.textContent = tx.status;
+        pill.className = `status-pill-cell status-${tx.status}`;
+        statusCell.appendChild(pill);
+        row.appendChild(statusCell);
+
+        tbody.appendChild(row);
+      });
+      table.appendChild(tbody);
+      historyContainer.appendChild(table);
+    } catch (err) {
+      showError(historyError, err.message);
+    } finally {
+      setLoading(submitBtn, false);
+    }
+  });
+</script>
+</body>
+</html>

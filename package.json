@@ -1,0 +1,8 @@
+{
+  "name": "miniledger",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "docker:up": "docker compose up --build"
+  }
+}
