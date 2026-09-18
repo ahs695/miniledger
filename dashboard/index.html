@@ -879,6 +879,73 @@
   const createUserError = document.getElementById("create-user-error");
   const userList = document.getElementById("user-list");
 
+  function buildUserListItem({ userId, walletId, balance, currency, email }) {
+    const li = document.createElement("li");
+    const textSpan = document.createElement("span");
+    textSpan.className = "entry-text mono";
+    textSpan.textContent =
+      `userId: ${userId}  |  walletId: ${walletId}  |  ${balance} ${currency}  (${email})`;
+
+    const actions = document.createElement("span");
+    actions.style.display = "flex";
+    actions.style.gap = "6px";
+    actions.style.flexShrink = "0";
+
+    const copyBtn = document.createElement("button");
+    copyBtn.type = "button";
+    copyBtn.className = "copy-btn";
+    copyBtn.title = "Copy userId";
+    copyBtn.innerHTML = COPY_ICON;
+    copyBtn.addEventListener("click", () => copyToClipboard(userId, copyBtn));
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.type = "button";
+    deleteBtn.className = "copy-btn";
+    deleteBtn.title = "Delete user (only works if wallet balance is zero)";
+    deleteBtn.innerHTML = DELETE_ICON;
+    deleteBtn.addEventListener("click", async () => {
+      clearChildren(createUserError);
+      deleteBtn.disabled = true;
+      try {
+        const res = await fetch(
+          `${ACCOUNT_SERVICE_URL}/users/${encodeURIComponent(userId)}`,
+          { method: "DELETE" }
+        );
+        const body = await parseJsonSafely(res);
+        if (!res.ok) {
+          const detail = (body && body.error) || res.statusText || `HTTP ${res.status}`;
+          showError(createUserError, `Delete failed: ${detail}`);
+          deleteBtn.disabled = false;
+          return;
+        }
+        li.remove();
+      } catch (err) {
+        showError(createUserError, `Network error deleting user: ${err.message}`);
+        deleteBtn.disabled = false;
+      }
+    });
+
+    actions.appendChild(copyBtn);
+    actions.appendChild(deleteBtn);
+    li.appendChild(textSpan);
+    li.appendChild(actions);
+    return li;
+  }
+
+  // Load existing users on page load — the list is otherwise just built up
+  // from what you create in this tab, and disappears on refresh since it
+  // was never actually being fetched from the backend.
+  async function loadUsers() {
+    try {
+      const users = await callApi(`${ACCOUNT_SERVICE_URL}/users`, { method: "GET" });
+      clearChildren(userList);
+      users.forEach((u) => userList.appendChild(buildUserListItem(u)));
+    } catch (err) {
+      showError(createUserError, `Could not load existing users: ${err.message}`);
+    }
+  }
+  loadUsers();
+
   createUserForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     clearChildren(createUserError);
@@ -898,56 +965,7 @@
         body: JSON.stringify(payload),
       });
 
-      const li = document.createElement("li");
-      const textSpan = document.createElement("span");
-      textSpan.className = "entry-text mono";
-      textSpan.textContent =
-        `userId: ${result.userId}  |  walletId: ${result.walletId}  |  ${result.balance} ${result.currency}  (${email})`;
-
-      const actions = document.createElement("span");
-      actions.style.display = "flex";
-      actions.style.gap = "6px";
-      actions.style.flexShrink = "0";
-
-      const copyBtn = document.createElement("button");
-      copyBtn.type = "button";
-      copyBtn.className = "copy-btn";
-      copyBtn.title = "Copy userId";
-      copyBtn.innerHTML = COPY_ICON;
-      copyBtn.addEventListener("click", () => copyToClipboard(result.userId, copyBtn));
-
-      const deleteBtn = document.createElement("button");
-      deleteBtn.type = "button";
-      deleteBtn.className = "copy-btn";
-      deleteBtn.title = "Delete user (only works if wallet balance is zero)";
-      deleteBtn.innerHTML = DELETE_ICON;
-      deleteBtn.addEventListener("click", async () => {
-        clearChildren(createUserError);
-        deleteBtn.disabled = true;
-        try {
-          const res = await fetch(
-            `${ACCOUNT_SERVICE_URL}/users/${encodeURIComponent(result.userId)}`,
-            { method: "DELETE" }
-          );
-          const body = await parseJsonSafely(res);
-          if (!res.ok) {
-            const detail = (body && body.error) || res.statusText || `HTTP ${res.status}`;
-            showError(createUserError, `Delete failed: ${detail}`);
-            deleteBtn.disabled = false;
-            return;
-          }
-          li.remove();
-        } catch (err) {
-          showError(createUserError, `Network error deleting user: ${err.message}`);
-          deleteBtn.disabled = false;
-        }
-      });
-
-      actions.appendChild(copyBtn);
-      actions.appendChild(deleteBtn);
-      li.appendChild(textSpan);
-      li.appendChild(actions);
-      userList.prepend(li);
+      userList.prepend(buildUserListItem({ ...result, email }));
       createUserForm.reset();
       bumpStat("users", "stat-users");
     } catch (err) {

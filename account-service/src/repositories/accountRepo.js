@@ -80,6 +80,25 @@ async function deleteUser(userId) {
   }
 }
 
+async function listUsers({ limit = 50, offset = 0 } = {}) {
+  const result = await query(
+    `SELECT u.id AS user_id, u.email, w.id AS wallet_id, w.balance, w.currency
+     FROM users u
+     JOIN wallets w ON w.user_id = u.id
+     ORDER BY u.created_at DESC
+     LIMIT $1 OFFSET $2`,
+    [limit, offset]
+  );
+
+  return result.rows.map((row) => ({
+    userId: row.user_id,
+    email: row.email,
+    walletId: row.wallet_id,
+    balance: row.balance,
+    currency: row.currency,
+  }));
+}
+
 async function getWalletByUserId(userId) {
   const result = await query(
     "SELECT id, balance, currency FROM wallets WHERE user_id = $1",
@@ -167,4 +186,4 @@ async function adjustBalance(walletId, amount, type, idempotencyKey) {
   }
 }
 
-module.exports = { createUser, deleteUser, getWalletByUserId, adjustBalance };
+module.exports = { createUser, deleteUser, listUsers, getWalletByUserId, adjustBalance };

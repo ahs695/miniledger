@@ -1,11 +1,39 @@
 const express = require("express");
-const { createUser, deleteUser } = require("../repositories/accountRepo");
+const { createUser, deleteUser, listUsers } = require("../repositories/accountRepo");
 
 const router = express.Router();
 
 function isValidEmail(email) {
   return typeof email === "string" && email.trim().length > 0 && email.includes("@");
 }
+
+function parseNonNegativeInt(value, fallback) {
+  if (value === undefined) {
+    return { value: fallback, valid: true };
+  }
+  if (!/^\d+$/.test(value)) {
+    return { value: null, valid: false };
+  }
+  return { value: parseInt(value, 10), valid: true };
+}
+
+router.get("/users", async (req, res) => {
+  const limit = parseNonNegativeInt(req.query.limit, 50);
+  const offset = parseNonNegativeInt(req.query.offset, 0);
+
+  if (!limit.valid || !offset.valid) {
+    return res.status(400).json({
+      error: "limit and offset must be non-negative integers",
+    });
+  }
+
+  try {
+    const users = await listUsers({ limit: limit.value, offset: offset.value });
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ error: "internal server error" });
+  }
+});
 
 router.post("/users", async (req, res) => {
   const { email, initialBalance } = req.body || {};

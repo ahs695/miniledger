@@ -50,6 +50,39 @@ describe("POST /users", () => {
   });
 });
 
+describe("GET /users", () => {
+  test("lists created users, newest first", async () => {
+    const first = await request(app)
+      .post("/users")
+      .send({ email: "users-test-list-1@example.com" });
+    const second = await request(app)
+      .post("/users")
+      .send({ email: "users-test-list-2@example.com", initialBalance: 10 });
+
+    const res = await request(app).get("/users");
+
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+
+    const ids = res.body.map((u) => u.userId);
+    expect(ids.indexOf(second.body.userId)).toBeLessThan(ids.indexOf(first.body.userId));
+
+    const listed = res.body.find((u) => u.userId === second.body.userId);
+    expect(listed).toEqual({
+      userId: second.body.userId,
+      email: "users-test-list-2@example.com",
+      walletId: second.body.walletId,
+      balance: "10.00",
+      currency: "INR",
+    });
+  });
+
+  test("rejects an invalid limit", async () => {
+    const res = await request(app).get("/users?limit=abc");
+    expect(res.status).toBe(400);
+  });
+});
+
 describe("DELETE /users/:userId", () => {
   test("deletes a user with a zero balance", async () => {
     const createRes = await request(app)
