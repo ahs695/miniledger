@@ -1,0 +1,16 @@
+version: "3.8"
+
+services:
+  account-service:
+    build: ./account-service
+    ports:
+      - "4001:4001"
+    environment:
+      - PORT=4001
+
+  transaction-service:
+    build: ./transaction-service
+    ports:
+      - "4002:4002"
+    environment:
+      - PORT=4002
