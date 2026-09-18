@@ -31,4 +31,53 @@ describe("POST /users", () => {
     expect(second.status).toBe(409);
     expect(second.body).toEqual({ error: "email already in use" });
   });
+
+  test("creates a user with a provided initial balance", async () => {
+    const res = await request(app)
+      .post("/users")
+      .send({ email: "users-test-funded@example.com", initialBalance: 50 });
+
+    expect(res.status).toBe(201);
+    expect(res.body.balance).toBe("50.00");
+  });
+
+  test("rejects a negative initialBalance", async () => {
+    const res = await request(app)
+      .post("/users")
+      .send({ email: "users-test-negative@example.com", initialBalance: -10 });
+
+    expect(res.status).toBe(400);
+  });
+});
+
+describe("DELETE /users/:userId", () => {
+  test("deletes a user with a zero balance", async () => {
+    const createRes = await request(app)
+      .post("/users")
+      .send({ email: "users-test-delete-me@example.com" });
+
+    const deleteRes = await request(app).delete(`/users/${createRes.body.userId}`);
+    expect(deleteRes.status).toBe(200);
+    expect(deleteRes.body).toEqual({ userId: createRes.body.userId, deleted: true });
+
+    const lookupRes = await request(app).get(`/internal/wallets/${createRes.body.userId}`);
+    expect(lookupRes.status).toBe(404);
+  });
+
+  test("refuses to delete a user with a non-zero balance", async () => {
+    const createRes = await request(app)
+      .post("/users")
+      .send({ email: "users-test-delete-funded@example.com", initialBalance: 25 });
+
+    const deleteRes = await request(app).delete(`/users/${createRes.body.userId}`);
+    expect(deleteRes.status).toBe(409);
+
+    const lookupRes = await request(app).get(`/internal/wallets/${createRes.body.userId}`);
+    expect(lookupRes.status).toBe(200);
+  });
+
+  test("returns 404 for an unknown userId", async () => {
+    const res = await request(app).delete("/users/00000000-0000-0000-0000-000000000000");
+    expect(res.status).toBe(404);
+  });
 });

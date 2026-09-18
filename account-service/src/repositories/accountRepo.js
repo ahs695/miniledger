@@ -1,6 +1,6 @@
 const { pool, query } = require("../db");
 
-async function createUser(email) {
+async function createUser(email, initialBalance = 0) {
   const client = await pool.connect();
 
   try {
@@ -13,8 +13,8 @@ async function createUser(email) {
     const userId = userResult.rows[0].id;
 
     const walletResult = await client.query(
-      "INSERT INTO wallets (user_id) VALUES ($1) RETURNING id, balance, currency",
-      [userId]
+      "INSERT INTO wallets (user_id, balance) VALUES ($1, $2) RETURNING id, balance, currency",
+      [userId, initialBalance.toFixed(2)]
     );
     const wallet = walletResult.rows[0];
 
@@ -26,6 +26,52 @@ async function createUser(email) {
       balance: wallet.balance,
       currency: wallet.currency,
     };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+async function deleteUser(userId) {
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    // Lock the wallet row before checking its balance, same reasoning as
+    // adjustBalance's FOR UPDATE: without it, a concurrent credit could land
+    // between the balance check and the delete below.
+    const walletResult = await client.query(
+      "SELECT id, balance FROM wallets WHERE user_id = $1 FOR UPDATE",
+      [userId]
+    );
+
+    if (walletResult.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return { status: 404, body: { error: "user not found" } };
+    }
+
+    const wallet = walletResult.rows[0];
+
+    if (Number(wallet.balance) !== 0) {
+      await client.query("ROLLBACK");
+      return {
+        status: 409,
+        body: {
+          error: "cannot delete user with a non-zero wallet balance",
+          balance: wallet.balance,
+        },
+      };
+    }
+
+    await client.query("DELETE FROM wallets WHERE user_id = $1", [userId]);
+    await client.query("DELETE FROM users WHERE id = $1", [userId]);
+
+    await client.query("COMMIT");
+
+    return { status: 200, body: { userId, deleted: true } };
   } catch (err) {
     await client.query("ROLLBACK");
     throw err;
@@ -121,4 +167,4 @@ async function adjustBalance(walletId, amount, type, idempotencyKey) {
   }
 }
 
-module.exports = { createUser, getWalletByUserId, adjustBalance };
+module.exports = { createUser, deleteUser, getWalletByUserId, adjustBalance };
